@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:todo_app/shared/componants.dart';
+import 'package:todo_app/screens/update_screen.dart';
+
 import 'package:todo_app/sqflite.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,127 +12,95 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   SqfLiteApp sqfLiteApp = SqfLiteApp();
+  List data = [];
+  bool isLoading = true;
 
-  Future<List<Map>> getDatabase() async {
-    List<Map> response = await sqfLiteApp.getDatabase('SELECT * FROM tasks');
-    return response;
+  Future getDatabase() async {
+    List<Map> response = await sqfLiteApp.getDatabase();
+    data.addAll(response);
+    isLoading = false;
+    if (this.mounted) setState(() {});
   }
 
-  var scaffoldKey = GlobalKey<ScaffoldState>();
-  bool isButtonCheck = false;
-  var textController = TextEditingController();
-  var timeController = TextEditingController();
-  var dateController = TextEditingController();
-  IconData fabIcon = Icons.edit;
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    getDatabase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: scaffoldKey,
       appBar: AppBar(
         title: Center(child: Text('home screen')),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          if (isButtonCheck) {
-            Navigator.pop(context);
-            isButtonCheck = false;
-            setState(() {
-              fabIcon = Icons.add;
-            });
-          } else {
-            scaffoldKey.currentState?.showBottomSheet(
-              (context) => Container(
-                color: Colors.grey[100],
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      defaultTextForm(
-                        controller: textController,
-                        type: TextInputType.text,
-                        label: 'Task Title',
-                        icon: Icons.title,
-                      ),
-                      SizedBox(
-                        height: 15,
-                      ),
-                      defaultTextForm(
-                          controller: timeController,
-                          type: TextInputType.number,
-                          label: 'Task Time',
-                          icon: Icons.watch_later_outlined,
-                          onTap: () {
-                            showTimePicker(
-                                    context: context,
-                                    initialTime: TimeOfDay.now())
-                                .then((value) {
-                              timeController.text =
-                                  value!.format(context).toString();
-                            });
-                          }),
-                      SizedBox(
-                        height: 15,
-                      ),
-                      defaultTextForm(
-                        controller: dateController,
-                        type: TextInputType.datetime,
-                        label: 'Task Date',
-                        icon: Icons.accessibility_new_rounded,
-                        onTap: () {
-                          showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.parse('2023-01-01'),
-                          ).then((value) {
-                            dateController.text =
-                                DateFormat.yMMMd().format(value!);
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-            isButtonCheck = true;
-            setState(() {
-              fabIcon = Icons.edit;
-            });
-          }
+          Navigator.of(context).pushNamed('Add Notes');
         },
-        child: Icon(fabIcon),
+        child: Icon(Icons.add),
       ),
-      body: Container(
-        child: ListView(
-          children: [
-            FutureBuilder(
-              future: getDatabase(),
-              builder:
-                  (BuildContext context, AsyncSnapshot<List<Map>> snapshot) {
-                if (snapshot.hasData) {
-                  return ListView.builder(
+      body: isLoading
+          ? CircularProgressIndicator()
+          : Container(
+              child: ListView(
+                children: [
+                  ListView.builder(
                     physics: NeverScrollableScrollPhysics(),
-                    itemCount: snapshot.data!.length,
+                    itemCount: data.length,
                     shrinkWrap: true,
                     itemBuilder: (context, index) {
                       return Card(
                         child: ListTile(
-                          title: Text('${snapshot.data![index]['title']}'),
+                          title: Text('${data[index]['title']}'),
+                          subtitle: Text('${data[index]['date']}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () async {
+                                  int response = await sqfLiteApp.deleteData(
+                                      'DELETE FROM tasks WHERE id = ${data[index]['id']}');
+                                  if (response > 0) {
+                                    data.removeWhere((element) =>
+                                        element['id'] == data[index]['id']);
+                                    setState(() {});
+                                  }
+                                  print('respoooooooonse=$response');
+                                },
+                                icon: Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => UpdateScreen(
+                                          title: data[index]['title'],
+                                          date: data[index]['date'],
+                                          state: data[index]['state'],
+                                          time: data[index]['time'],
+                                          id: data[index]['id']),
+                                    ),
+                                  );
+                                },
+                                icon: Icon(
+                                  Icons.edit,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
-                  );
-                }
-                return Center(
-                  child: CircularProgressIndicator(),
-                );
-              },
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }

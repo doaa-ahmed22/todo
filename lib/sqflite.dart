@@ -40,9 +40,10 @@ class SqfLiteApp {
     print('database created');
   }
 
-  getDatabase(String sql) async {
+  getDatabase() async {
     database = await checkDatabase;
-    Future<List<Map<String, Object?>>> response = database!.rawQuery(sql);
+    Future<List<Map<String, Object?>>> response =
+        database!.rawQuery('SELECT * FROM tasks');
     return response;
   }
 
